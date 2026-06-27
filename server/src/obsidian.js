@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { db, UPLOADS_DIR, DATA_DIR } = require('./db');
+const { db, DATA_DIR, KEY_HEX } = require('./db');
+const { diskPathFor } = require('./uploads-util');
+const { decryptBuffer } = require('./crypto/file-crypto');
 
 // Where the generated Obsidian vault is written. It's a one-way snapshot: each
 // export wipes and regenerates this folder from the database.
@@ -81,12 +83,14 @@ function exportVault() {
     fs.mkdirSync(path.join(VAULT_DIR, sub), { recursive: true });
   }
 
+  // Uploads are encrypted at rest; decrypt into the (readable) Obsidian export.
   const copyAttachment = (filename) => {
     if (!filename) return null;
-    const src = path.join(UPLOADS_DIR, filename);
+    const src = diskPathFor(filename);
     if (!fs.existsSync(src)) return null;
     try {
-      fs.copyFileSync(src, path.join(ATTACH_DIR, filename));
+      const plain = decryptBuffer(fs.readFileSync(src), KEY_HEX);
+      fs.writeFileSync(path.join(ATTACH_DIR, filename), plain);
       return filename;
     } catch {
       return null;

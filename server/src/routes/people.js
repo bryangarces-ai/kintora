@@ -1,21 +1,10 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const { db, UPLOADS_DIR } = require('../db');
+const { db } = require('../db');
 const { upload } = require('../upload');
+const { removeUpload } = require('../uploads-util');
 const { removeEntityLinks } = require('../links-util');
 
 const router = express.Router();
-
-// Delete an uploaded file by its relative name (best-effort, ignores errors).
-function removeUpload(relPath) {
-  if (!relPath) return;
-  try {
-    fs.unlinkSync(path.join(UPLOADS_DIR, relPath));
-  } catch (_) {
-    /* file may already be gone */
-  }
-}
 
 // GET /api/people — list all people, newest first
 router.get('/', (req, res) => {
