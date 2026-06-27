@@ -12,6 +12,7 @@ const Database = require('better-sqlite3-multiple-ciphers');
 const { encryptBuffer } = require('./file-crypto');
 
 const SQLITE_MAGIC = 'SQLite format 3\x00';
+const SCHEMA = fs.readFileSync(path.join(__dirname, '..', 'schema.sql'), 'utf8');
 
 function dbPathOf(dataDir) {
   return path.join(dataDir, 'memory-vault.db');
@@ -61,17 +62,36 @@ function migratePlaintextVault(dataDir, dekHex) {
     plain.close();
   }
 
-  // 3. Build an encrypted copy via sqlcipher_export (plaintext -> encrypted).
+  // 3. Build an encrypted copy: create the schema in the encrypted DB, then copy
+  //    every row out of the attached plaintext DB (mirrors the restore path —
+  //    works across the encryption boundary; sqlcipher_export is unavailable).
   const encPath = dbPath + '.migrating';
   fs.rmSync(encPath, { force: true });
   {
     const enc = new Database(encPath);
     enc.pragma(`cipher='sqlcipher'`);
     enc.pragma(`key="x'${dekHex}'"`);
+    enc.exec(SCHEMA);
+    enc.pragma('foreign_keys = OFF');
     enc.exec(`ATTACH DATABASE '${dbPath.replace(/'/g, "''")}' AS plain KEY ''`);
-    enc.exec(`SELECT sqlcipher_export('main', 'plain')`);
-    enc.exec('DETACH DATABASE plain');
-    enc.close();
+    try {
+      const tables = enc
+        .prepare(
+          `SELECT name FROM plain.sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
+        )
+        .all()
+        .map((r) => r.name);
+      const copy = enc.transaction(() => {
+        for (const t of tables) {
+          enc.prepare(`INSERT INTO main."${t}" SELECT * FROM plain."${t}"`).run();
+        }
+      });
+      copy();
+    } finally {
+      enc.exec('DETACH DATABASE plain');
+      enc.pragma('foreign_keys = ON');
+      enc.close();
+    }
   }
 
   // 4. Verify the encrypted copy opens with the key and is readable.
