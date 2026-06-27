@@ -15,6 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const SCRYPT = { N: 32768, r: 8, p: 1, keylen: 32, maxmem: 96 * 1024 * 1024 };
+const BACKUP_MAGIC = Buffer.from('KVB1'); // Kintora Vault Backup, format 1
 
 function keysDir(dataDir) {
   return path.join(dataDir, 'keys');
@@ -69,6 +70,36 @@ function unwrapWithPassphrase(wrap, passphrase) {
   }
 }
 
+// --- Passphrase encryption of arbitrary data (portable backups) ---
+// Layout: [ MAGIC(4) | salt(16) | iv(12) | tag(16) | ciphertext ]
+function encryptWithPassphrase(buf, passphrase) {
+  if (!passphrase) throw new Error('keyring: passphrase is required');
+  const salt = crypto.randomBytes(16);
+  const kek = crypto.scryptSync(Buffer.from(passphrase, 'utf8'), salt, SCRYPT.keylen, SCRYPT);
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', kek, iv);
+  const ct = Buffer.concat([c.update(buf), c.final()]);
+  return Buffer.concat([BACKUP_MAGIC, salt, iv, c.getAuthTag(), ct]);
+}
+
+function decryptWithPassphrase(buf, passphrase) {
+  if (buf.length < 4 + 16 + 12 + 16 || !buf.subarray(0, 4).equals(BACKUP_MAGIC)) {
+    throw new Error('Not a valid Kintora backup file.');
+  }
+  const salt = buf.subarray(4, 20);
+  const iv = buf.subarray(20, 32);
+  const tag = buf.subarray(32, 48);
+  const ct = buf.subarray(48);
+  const kek = crypto.scryptSync(Buffer.from(passphrase, 'utf8'), salt, SCRYPT.keylen, SCRYPT);
+  const d = crypto.createDecipheriv('aes-256-gcm', kek, iv);
+  d.setAuthTag(tag);
+  try {
+    return Buffer.concat([d.update(ct), d.final()]);
+  } catch (_) {
+    throw new Error('Incorrect passphrase.');
+  }
+}
+
 // --- On-disk passphrase wrap helpers ---
 function hasPassphrase(dataDir) {
   return fs.existsSync(passPath(dataDir));
@@ -95,6 +126,8 @@ module.exports = {
   generateDEK,
   wrapWithPassphrase,
   unwrapWithPassphrase,
+  encryptWithPassphrase,
+  decryptWithPassphrase,
   hasPassphrase,
   readPassWrap,
   writePassWrap,

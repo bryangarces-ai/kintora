@@ -10,15 +10,16 @@ const upload = multer({
   limits: { fileSize: 1024 * 1024 * 1024 },
 });
 
-// GET /api/backup/download — stream the whole vault as a .zip attachment.
-router.get('/download', async (req, res, next) => {
+// POST /api/backup/download — return the whole vault as a passphrase-encrypted
+// ".kvault" attachment. The passphrase is sent in the JSON body (not the URL).
+router.post('/download', async (req, res, next) => {
   try {
-    const buf = await createBackupBuffer();
+    const buf = await createBackupBuffer((req.body && req.body.passphrase) || '');
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="kintora-backup-${date}.zip"`
+      `attachment; filename="kintora-backup-${date}.kvault"`
     );
     res.send(buf);
   } catch (err) {
@@ -26,11 +27,12 @@ router.get('/download', async (req, res, next) => {
   }
 });
 
-// POST /api/backup/restore — replace the vault from an uploaded .zip backup.
+// POST /api/backup/restore — replace the vault from an uploaded .kvault backup.
+// Multipart: file field "backup" + text field "passphrase".
 router.post('/restore', upload.single('backup'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No backup file uploaded.' });
-    const result = await restoreFromBuffer(req.file.buffer);
+    const result = await restoreFromBuffer(req.file.buffer, (req.body && req.body.passphrase) || '');
     res.json(result);
   } catch (err) {
     next(err);
