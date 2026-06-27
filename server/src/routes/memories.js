@@ -1,20 +1,10 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const { db, UPLOADS_DIR } = require('../db');
+const { db } = require('../db');
 const { upload } = require('../upload');
+const { removeUpload } = require('../uploads-util');
 const { removeEntityLinks } = require('../links-util');
 
 const router = express.Router();
-
-function removeUpload(relPath) {
-  if (!relPath) return;
-  try {
-    fs.unlinkSync(path.join(UPLOADS_DIR, relPath));
-  } catch (_) {
-    /* ignore */
-  }
-}
 
 // Parse personIds coming from multipart form-data. It may arrive as a single
 // value, an array, or a JSON string — normalize to an array of numbers.

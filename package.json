@@ -1,6 +1,6 @@
 {
   "name": "memory-vault-desktop",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Personal Memory Vault — local, offline desktop app",
   "author": "Bryan",
   "main": "electron/main.js",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3-multiple-ciphers": "^11.10.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "multer": "^2.2.0"
@@ -36,7 +36,7 @@
       "package.json"
     ],
     "asarUnpack": [
-      "**/node_modules/better-sqlite3/**/*"
+      "**/node_modules/better-sqlite3-multiple-ciphers/**/*"
     ],
     "win": {
       "target": [

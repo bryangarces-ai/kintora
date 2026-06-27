@@ -10,6 +10,8 @@ const path = require('node:path');
 // real data. db.js resolves MEMORY_VAULT_DATA_DIR at load time.
 const TMP_VAULT = fs.mkdtempSync(path.join(os.tmpdir(), 'kintora-test-'));
 process.env.MEMORY_VAULT_DATA_DIR = TMP_VAULT;
+// The DB is encrypted; tests open it with a fixed throwaway key.
+process.env.KINTORA_VAULT_KEY = 'a'.repeat(64);
 delete process.env.CLIENT_DIST; // keep the SPA/static-serving block disabled
 
 const { app } = require('../src/index');
@@ -112,6 +114,62 @@ test('facts: create, validate, and delete', async () => {
   assert.equal(res.status, 404);
 });
 
+test('vault DB is encrypted on disk (no plaintext leaks)', async () => {
+  const canary = 'CANARY-PLAINTEXT-9f8e7d6c';
+  const res = await api('POST', '/api/facts', { label: 'canary', value: canary });
+  assert.equal(res.status, 201);
+
+  // Flush the WAL into the main DB file, then inspect the raw bytes on disk.
+  const { db } = require('../src/db');
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  const dbBytes = fs.readFileSync(path.join(TMP_VAULT, 'memory-vault.db'));
+
+  // The canary value must not appear in cleartext anywhere in the file.
+  assert.ok(
+    !dbBytes.includes(Buffer.from(canary)),
+    'plaintext canary leaked into the DB file'
+  );
+  // A plaintext SQLite DB begins with the 16-byte magic "SQLite format 3" + NUL.
+  // An encrypted database must not start with that header.
+  assert.notEqual(dbBytes.subarray(0, 16).toString('binary'), 'SQLite format 3\x00');
+});
+
+test('uploads are encrypted on disk and served decrypted', async () => {
+  const original = Buffer.from('FAKE-IMAGE-BYTES-canary-pixels-0123456789');
+
+  const form = new FormData();
+  form.set('title', 'Photo memory');
+  form.set('photos', new Blob([original], { type: 'image/png' }), 'pic.png');
+
+  const res = await fetch(base + '/api/memories', { method: 'POST', body: form });
+  assert.equal(res.status, 201);
+  const mem = await res.json();
+  assert.equal(mem.media.length, 1);
+  const name = mem.media[0].file_path;
+
+  // On disk it lives as "<name>.enc", starts with the MAGIC, and has no plaintext.
+  const encBytes = fs.readFileSync(path.join(TMP_VAULT, 'uploads', name + '.enc'));
+  assert.equal(encBytes.subarray(0, 4).toString(), 'KVE1');
+  assert.ok(
+    !encBytes.includes(Buffer.from('canary-pixels')),
+    'plaintext leaked into the encrypted upload file'
+  );
+
+  // Served back fully decrypted and byte-identical.
+  const served = await fetch(base + '/uploads/' + name);
+  assert.equal(served.status, 200);
+  const got = Buffer.from(await served.arrayBuffer());
+  assert.ok(got.equals(original), 'served bytes differ from the original');
+
+  // Range requests work (used by <audio> seeking).
+  const ranged = await fetch(base + '/uploads/' + name, {
+    headers: { Range: 'bytes=0-3' },
+  });
+  assert.equal(ranged.status, 206);
+  const part = Buffer.from(await ranged.arrayBuffer());
+  assert.ok(part.equals(original.subarray(0, 4)));
+});
+
 test('memories: create with a tagged person, then cascade on person delete', async () => {
   // person to tag in the memory
   let res = await api('POST', '/api/people', { name: 'Bob' });
@@ -146,4 +204,97 @@ test('memories: create with a tagged person, then cascade on person delete', asy
   res = await api('GET', `/api/memories/${memId}`);
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.people, []);
+});
+
+test('backup round-trip: portable .kvault restores and rejects a wrong passphrase', async () => {
+  // Seed a fact and a photo memory.
+  let res = await api('POST', '/api/facts', { label: 'backup', value: 'restore-me-please' });
+  const factId = res.body.id;
+
+  const photo = Buffer.from('BACKUP-PHOTO-BYTES-abcdef-0123456789');
+  const form = new FormData();
+  form.set('title', 'Backup photo memory');
+  form.set('photos', new Blob([photo], { type: 'image/png' }), 'b.png');
+  res = await fetch(base + '/api/memories', { method: 'POST', body: form });
+  const photoName = (await res.json()).media[0].file_path;
+
+  // Download a passphrase-encrypted backup.
+  const dl = await fetch(base + '/api/backup/download', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ passphrase: 'correct-pw' }),
+  });
+  assert.equal(dl.status, 200);
+  const kvault = Buffer.from(await dl.arrayBuffer());
+  assert.equal(kvault.subarray(0, 4).toString(), 'KVB1'); // encrypted, not a raw zip
+
+  // Mutate: delete the fact.
+  await api('DELETE', `/api/facts/${factId}`);
+  res = await api('GET', '/api/facts');
+  assert.ok(!res.body.some((f) => f.id === factId));
+
+  // A wrong passphrase is rejected.
+  const badForm = new FormData();
+  badForm.set('passphrase', 'wrong');
+  badForm.set('backup', new Blob([kvault]), 'b.kvault');
+  let rest = await fetch(base + '/api/backup/restore', { method: 'POST', body: badForm });
+  assert.equal(rest.status, 400);
+
+  // The correct passphrase restores everything.
+  const goodForm = new FormData();
+  goodForm.set('passphrase', 'correct-pw');
+  goodForm.set('backup', new Blob([kvault]), 'b.kvault');
+  rest = await fetch(base + '/api/backup/restore', { method: 'POST', body: goodForm });
+  assert.equal(rest.status, 200);
+
+  // The fact is back...
+  res = await api('GET', '/api/facts');
+  assert.ok(res.body.some((f) => f.value === 'restore-me-please'));
+
+  // ...and the photo decrypts to the original bytes.
+  const served = await fetch(base + '/uploads/' + photoName);
+  assert.equal(served.status, 200);
+  assert.ok(Buffer.from(await served.arrayBuffer()).equals(photo));
+});
+
+test('security: status, then enable / change / remove the vault passphrase', async () => {
+  let res = await api('GET', '/api/security/status');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.encrypted, true);
+  assert.equal(res.body.hasPassphrase, false);
+
+  // Too short is rejected.
+  res = await api('POST', '/api/security/passphrase', { passphrase: 'abc' });
+  assert.equal(res.status, 400);
+
+  // Enable.
+  res = await api('POST', '/api/security/passphrase', { passphrase: 'first-pass' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.hasPassphrase, true);
+
+  res = await api('GET', '/api/security/status');
+  assert.equal(res.body.hasPassphrase, true);
+
+  // Change with a wrong current passphrase is rejected.
+  res = await api('POST', '/api/security/passphrase', {
+    passphrase: 'second-pass',
+    current: 'wrong',
+  });
+  assert.equal(res.status, 400);
+
+  // Change with the correct current passphrase.
+  res = await api('POST', '/api/security/passphrase', {
+    passphrase: 'second-pass',
+    current: 'first-pass',
+  });
+  assert.equal(res.status, 200);
+
+  // Remove with a wrong current passphrase is rejected.
+  res = await api('DELETE', '/api/security/passphrase', { current: 'nope' });
+  assert.equal(res.status, 400);
+
+  // Remove with the correct current passphrase.
+  res = await api('DELETE', '/api/security/passphrase', { current: 'second-pass' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.hasPassphrase, false);
 });

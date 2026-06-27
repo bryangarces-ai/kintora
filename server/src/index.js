@@ -2,16 +2,15 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
-const { UPLOADS_DIR } = require('./db');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded photos/audio statically at /uploads/<filename>.
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Serve uploaded photos/audio at /uploads/<filename>. Files are encrypted at
+// rest, so this route decrypts on the fly (it is NOT static file serving).
+app.use('/uploads', require('./routes/uploads'));
 
 // API routes
 app.use('/api/people', require('./routes/people'));
@@ -23,6 +22,7 @@ app.use('/api/links', require('./routes/links'));
 app.use('/api/graph', require('./routes/graph'));
 app.use('/api/obsidian', require('./routes/obsidian'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/security', require('./routes/security'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));

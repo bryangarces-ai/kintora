@@ -13,6 +13,7 @@ import {
   Person,
   RestoreResult,
   SearchResult,
+  SecurityStatus,
   TimelineEvent,
 } from './models';
 
@@ -127,14 +128,31 @@ export class ApiService {
   }
 
   // ---- Backup / restore ------------------------------------------------
-  /** URL that streams the whole vault as a downloadable .zip. */
-  backupDownloadUrl(): string {
-    return `${this.base}/backup/download`;
+  /** Download the whole vault as a passphrase-encrypted .kvault blob. */
+  downloadBackup(passphrase: string): Observable<Blob> {
+    return this.http.post(`${this.base}/backup/download`, { passphrase }, { responseType: 'blob' });
   }
-  restoreBackup(file: File): Observable<RestoreResult> {
+  restoreBackup(file: File, passphrase: string): Observable<RestoreResult> {
     const form = new FormData();
     form.append('backup', file);
+    form.append('passphrase', passphrase);
     return this.http.post<RestoreResult>(`${this.base}/backup/restore`, form);
+  }
+
+  // ---- Vault security (passphrase) -------------------------------------
+  getSecurityStatus(): Observable<SecurityStatus> {
+    return this.http.get<SecurityStatus>(`${this.base}/security/status`);
+  }
+  setPassphrase(passphrase: string, current?: string): Observable<SecurityStatus> {
+    return this.http.post<SecurityStatus>(`${this.base}/security/passphrase`, {
+      passphrase,
+      current,
+    });
+  }
+  removePassphrase(current: string): Observable<SecurityStatus> {
+    return this.http.delete<SecurityStatus>(`${this.base}/security/passphrase`, {
+      body: { current },
+    });
   }
 
   /**
