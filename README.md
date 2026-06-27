@@ -1,5 +1,8 @@
 # Kintora
 
+[![CI](https://github.com/bryangarces-ai/kintora/actions/workflows/ci.yml/badge.svg)](https://github.com/bryangarces-ai/kintora/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Kintora** — *your people, your moments, kept close.*
 
 A **local, offline** app to capture and preserve your important memories, the
