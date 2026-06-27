@@ -1,6 +1,6 @@
 {
   "name": "memory-vault-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Personal Memory Vault — local, offline desktop app",
   "author": "Bryan",
   "main": "electron/main.js",
