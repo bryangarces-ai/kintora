@@ -26,6 +26,11 @@ npm --prefix client install
 npm --prefix server install
 
 # dev — two terminals
+# The vault is encrypted, so the server needs a key (64 hex chars) in dev.
+# The desktop app sets this automatically; in two-terminal mode, set it yourself:
+#   bash:        export KINTORA_VAULT_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+#   PowerShell:  $env:KINTORA_VAULT_KEY = (node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+# Use the SAME key every run to reopen the same dev vault (server/data/).
 cd server && npm start     # API on :3000
 cd client && npm start     # Angular on :4200 (proxies /api + /uploads)
 

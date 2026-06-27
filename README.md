@@ -8,7 +8,8 @@
 A **local, offline** app to capture and preserve your important memories, the
 people in your life, critical facts, and key life events — so they're never lost.
 
-Everything is stored on **your own computer**. Nothing is sent to the internet.
+Everything is stored on **your own computer**, **encrypted at rest**. Nothing is
+sent to the internet.
 
 ## What it does
 
