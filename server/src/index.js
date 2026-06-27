@@ -22,6 +22,7 @@ app.use('/api/links', require('./routes/links'));
 app.use('/api/graph', require('./routes/graph'));
 app.use('/api/obsidian', require('./routes/obsidian'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/security', require('./routes/security'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));

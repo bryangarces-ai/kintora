@@ -256,3 +256,45 @@ test('backup round-trip: portable .kvault restores and rejects a wrong passphras
   assert.equal(served.status, 200);
   assert.ok(Buffer.from(await served.arrayBuffer()).equals(photo));
 });
+
+test('security: status, then enable / change / remove the vault passphrase', async () => {
+  let res = await api('GET', '/api/security/status');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.encrypted, true);
+  assert.equal(res.body.hasPassphrase, false);
+
+  // Too short is rejected.
+  res = await api('POST', '/api/security/passphrase', { passphrase: 'abc' });
+  assert.equal(res.status, 400);
+
+  // Enable.
+  res = await api('POST', '/api/security/passphrase', { passphrase: 'first-pass' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.hasPassphrase, true);
+
+  res = await api('GET', '/api/security/status');
+  assert.equal(res.body.hasPassphrase, true);
+
+  // Change with a wrong current passphrase is rejected.
+  res = await api('POST', '/api/security/passphrase', {
+    passphrase: 'second-pass',
+    current: 'wrong',
+  });
+  assert.equal(res.status, 400);
+
+  // Change with the correct current passphrase.
+  res = await api('POST', '/api/security/passphrase', {
+    passphrase: 'second-pass',
+    current: 'first-pass',
+  });
+  assert.equal(res.status, 200);
+
+  // Remove with a wrong current passphrase is rejected.
+  res = await api('DELETE', '/api/security/passphrase', { current: 'nope' });
+  assert.equal(res.status, 400);
+
+  // Remove with the correct current passphrase.
+  res = await api('DELETE', '/api/security/passphrase', { current: 'second-pass' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.hasPassphrase, false);
+});
