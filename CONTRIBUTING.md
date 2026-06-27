@@ -44,15 +44,35 @@ npm run electron:build     # -> dist-desktop/
 
 ## Tests
 
-- Client: `npm --prefix client test` (`ng test`).
-- Server: no automated tests yet — verify via `/api/health` and a manual smoke test.
+Run both suites before opening a PR — CI runs the same two jobs and they must
+pass before a PR can merge:
+
+- **Client:** `npm --prefix client test -- --watch=false --browsers=ChromeHeadless`
+- **Server:** `npm --prefix server test` (Node's built-in test runner). The tests
+  set their own throwaway `KINTORA_VAULT_KEY` and run against a temporary vault,
+  so they never touch real data.
+
+It's also good practice to smoke-test the desktop app (`npm run build:client`
+then `npm run electron:dev`) for anything touching uploads, encryption, or the
+Electron layer.
 
 ## Pull requests
 
-1. Fork and create a feature branch.
-2. Keep changes focused; match the surrounding code style.
-3. Confirm the offline + no-personal-data rules above.
-4. Describe what you changed and how you tested it.
+`main` is protected — **nobody pushes to it directly, including the maintainer.**
+All changes land through pull requests. The flow:
+
+1. **Fork** the repo to your own account, then clone your fork.
+2. Create a focused **feature branch** (e.g. `fix/voice-note-seeking`).
+3. Make your change; match the surrounding code style and keep the diff tight.
+4. Confirm the **offline** and **no-personal-data** rules above still hold.
+5. Run both test suites locally (see above).
+6. Push to your fork and **open a PR** against `main`.
+7. CI (client + server) must go green, and any review conversations must be
+   resolved, before the PR can be merged. The maintainer reviews and merges —
+   you don't need (and won't have) direct write access to `main`.
+
+Small, well-described PRs get reviewed fastest. Tell us **what** changed and
+**how you tested it**.
 
 ## Reporting bugs
 
