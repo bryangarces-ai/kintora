@@ -15,8 +15,13 @@ server/data/
 **/*.db-shm
 **/*.db-wal
 
+# Personal social-media drafts (kept local only)
+KINTORA-FACEBOOK-POST.md
+
+# Local tooling + private screenshots (not part of the published app)
+tools/
+
 # Python tooling
-tools/__pycache__/
 **/__pycache__/
 *.pyc
 
