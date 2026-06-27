@@ -42,10 +42,15 @@ test('migrate: plaintext vault -> encrypted, with safety backup', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kintora-migrate-'));
   const dbPath = path.join(dir, 'memory-vault.db');
 
-  // Build a plaintext DB with a row.
+  // Build a plaintext DB using the real schema (so columns match the migration).
+  const schema = fs.readFileSync(path.join(__dirname, '..', 'src', 'schema.sql'), 'utf8');
   const plain = new Database(dbPath);
-  plain.exec('CREATE TABLE facts (id INTEGER PRIMARY KEY, label TEXT, value TEXT)');
-  plain.prepare('INSERT INTO facts (label, value) VALUES (?, ?)').run('Blood type', 'O+');
+  plain.exec(schema);
+  plain.prepare('INSERT INTO facts (category, label, value) VALUES (?, ?, ?)').run(
+    'medical',
+    'Blood type',
+    'O+'
+  );
   plain.close();
 
   // And a plaintext upload.
