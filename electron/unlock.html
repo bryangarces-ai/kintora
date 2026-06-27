@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Unlock Kintora</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+      .card { width: 100%; padding: 28px 32px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p { margin: 0 0 18px; color: #94a3b8; font-size: 13px; line-height: 1.5; }
+      label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 6px; }
+      input {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #1e293b;
+        color: #f1f5f9;
+        font-size: 15px;
+        outline: none;
+      }
+      input:focus { border-color: #6366f1; }
+      .error { color: #f87171; font-size: 12px; min-height: 16px; margin: 8px 2px 0; }
+      .row { display: flex; gap: 10px; margin-top: 18px; }
+      button {
+        flex: 1;
+        padding: 11px 12px;
+        border-radius: 8px;
+        border: 0;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .primary { background: #6366f1; color: white; }
+      .ghost { background: #1e293b; color: #cbd5e1; }
+    </style>
+  </head>
+  <body>
+    <form class="card" id="form">
+      <h1>🔒 Unlock your vault</h1>
+      <p>
+        Kintora couldn't unlock this vault automatically on this device. Enter
+        your passphrase to open it. Everything stays on your computer.
+      </p>
+      <label for="pass">Passphrase</label>
+      <input id="pass" type="password" autocomplete="off" autofocus />
+      <div class="error" id="error"></div>
+      <div class="row">
+        <button type="button" class="ghost" id="quit">Quit</button>
+        <button type="submit" class="primary">Unlock</button>
+      </div>
+    </form>
+    <script>
+      const form = document.getElementById('form');
+      const pass = document.getElementById('pass');
+      const error = document.getElementById('error');
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        error.textContent = '';
+        window.unlock.submit(pass.value);
+      });
+      document.getElementById('quit').addEventListener('click', () => window.unlock.cancel());
+      window.unlock.onError((msg) => {
+        error.textContent = msg;
+        pass.select();
+      });
+    </script>
+  </body>
+</html>

@@ -46,11 +46,31 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Store the vault in a writable, persistent per-user location. The packaged
   // app bundle is read-only, so data must NOT live inside it.
   // Rooted at .../vault/ so a future multi-user phase can become .../vaults/<id>/.
-  process.env.MEMORY_VAULT_DATA_DIR = path.join(app.getPath('userData'), 'vault');
+  // An explicit MEMORY_VAULT_DATA_DIR (e.g. for testing) is respected if set.
+  process.env.MEMORY_VAULT_DATA_DIR =
+    process.env.MEMORY_VAULT_DATA_DIR || path.join(app.getPath('userData'), 'vault');
+
+  // Unlock the encrypted vault BEFORE the server loads (db.js needs the key at
+  // require time). Handles first run, DPAPI auto-unlock, the passphrase prompt,
+  // and legacy plaintext-vault migration. A null result means the user cancelled.
+  const { getDekHex } = require('./keyman');
+  let dekHex;
+  try {
+    dekHex = await getDekHex({ dataDir: process.env.MEMORY_VAULT_DATA_DIR });
+  } catch (err) {
+    console.error('Failed to unlock the Kintora vault:', err);
+    app.quit();
+    return;
+  }
+  if (!dekHex) {
+    app.quit(); // user cancelled the unlock prompt
+    return;
+  }
+  process.env.KINTORA_VAULT_KEY = dekHex;
 
   // Point the embedded Express server at the built Angular app so it serves the
   // UI and the API from one origin. Path mirrors the repo layout inside the asar.
