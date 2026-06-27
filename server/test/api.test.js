@@ -205,3 +205,54 @@ test('memories: create with a tagged person, then cascade on person delete', asy
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.people, []);
 });
+
+test('backup round-trip: portable .kvault restores and rejects a wrong passphrase', async () => {
+  // Seed a fact and a photo memory.
+  let res = await api('POST', '/api/facts', { label: 'backup', value: 'restore-me-please' });
+  const factId = res.body.id;
+
+  const photo = Buffer.from('BACKUP-PHOTO-BYTES-abcdef-0123456789');
+  const form = new FormData();
+  form.set('title', 'Backup photo memory');
+  form.set('photos', new Blob([photo], { type: 'image/png' }), 'b.png');
+  res = await fetch(base + '/api/memories', { method: 'POST', body: form });
+  const photoName = (await res.json()).media[0].file_path;
+
+  // Download a passphrase-encrypted backup.
+  const dl = await fetch(base + '/api/backup/download', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ passphrase: 'correct-pw' }),
+  });
+  assert.equal(dl.status, 200);
+  const kvault = Buffer.from(await dl.arrayBuffer());
+  assert.equal(kvault.subarray(0, 4).toString(), 'KVB1'); // encrypted, not a raw zip
+
+  // Mutate: delete the fact.
+  await api('DELETE', `/api/facts/${factId}`);
+  res = await api('GET', '/api/facts');
+  assert.ok(!res.body.some((f) => f.id === factId));
+
+  // A wrong passphrase is rejected.
+  const badForm = new FormData();
+  badForm.set('passphrase', 'wrong');
+  badForm.set('backup', new Blob([kvault]), 'b.kvault');
+  let rest = await fetch(base + '/api/backup/restore', { method: 'POST', body: badForm });
+  assert.equal(rest.status, 400);
+
+  // The correct passphrase restores everything.
+  const goodForm = new FormData();
+  goodForm.set('passphrase', 'correct-pw');
+  goodForm.set('backup', new Blob([kvault]), 'b.kvault');
+  rest = await fetch(base + '/api/backup/restore', { method: 'POST', body: goodForm });
+  assert.equal(rest.status, 200);
+
+  // The fact is back...
+  res = await api('GET', '/api/facts');
+  assert.ok(res.body.some((f) => f.value === 'restore-me-please'));
+
+  // ...and the photo decrypts to the original bytes.
+  const served = await fetch(base + '/uploads/' + photoName);
+  assert.equal(served.status, 200);
+  assert.ok(Buffer.from(await served.arrayBuffer()).equals(photo));
+});
