@@ -117,3 +117,9 @@ export interface RestoreResult {
   // Filename of the automatic safety snapshot taken before the restore.
   safetyBackup: string;
 }
+
+// ---- Vault security --------------------------------------------------
+export interface SecurityStatus {
+  encrypted: boolean;
+  hasPassphrase: boolean;
+}

@@ -30,6 +30,10 @@ import { RouterLink } from '@angular/router';
         <h3 class="font-semibold text-emerald-900">🔒 Private by design</h3>
         <ul class="mt-2 list-disc space-y-1.5 pl-5 text-emerald-900">
           <li>Everything stays <strong>on your own computer</strong>.</li>
+          <li>
+            Your vault is <strong>encrypted on disk</strong> — the database and all
+            photos and voice notes. It unlocks automatically on this computer.
+          </li>
           <li>No internet connection is used — nothing is uploaded or shared.</li>
           <li>No account, no sign-up, no tracking.</li>
           <li>Even voice notes and read-aloud run locally on your device.</li>
@@ -68,7 +72,7 @@ import { RouterLink } from '@angular/router';
   `,
 })
 export class About {
-  protected readonly version = '1.0.0';
+  protected readonly version = '1.1.0';
 
   protected readonly features = [
     { icon: '🌅', label: 'Recall — your daily briefing', path: '/recall' },
