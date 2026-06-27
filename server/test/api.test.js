@@ -134,6 +134,42 @@ test('vault DB is encrypted on disk (no plaintext leaks)', async () => {
   assert.notEqual(dbBytes.subarray(0, 16).toString('binary'), 'SQLite format 3\x00');
 });
 
+test('uploads are encrypted on disk and served decrypted', async () => {
+  const original = Buffer.from('FAKE-IMAGE-BYTES-canary-pixels-0123456789');
+
+  const form = new FormData();
+  form.set('title', 'Photo memory');
+  form.set('photos', new Blob([original], { type: 'image/png' }), 'pic.png');
+
+  const res = await fetch(base + '/api/memories', { method: 'POST', body: form });
+  assert.equal(res.status, 201);
+  const mem = await res.json();
+  assert.equal(mem.media.length, 1);
+  const name = mem.media[0].file_path;
+
+  // On disk it lives as "<name>.enc", starts with the MAGIC, and has no plaintext.
+  const encBytes = fs.readFileSync(path.join(TMP_VAULT, 'uploads', name + '.enc'));
+  assert.equal(encBytes.subarray(0, 4).toString(), 'KVE1');
+  assert.ok(
+    !encBytes.includes(Buffer.from('canary-pixels')),
+    'plaintext leaked into the encrypted upload file'
+  );
+
+  // Served back fully decrypted and byte-identical.
+  const served = await fetch(base + '/uploads/' + name);
+  assert.equal(served.status, 200);
+  const got = Buffer.from(await served.arrayBuffer());
+  assert.ok(got.equals(original), 'served bytes differ from the original');
+
+  // Range requests work (used by <audio> seeking).
+  const ranged = await fetch(base + '/uploads/' + name, {
+    headers: { Range: 'bytes=0-3' },
+  });
+  assert.equal(ranged.status, 206);
+  const part = Buffer.from(await ranged.arrayBuffer());
+  assert.ok(part.equals(original.subarray(0, 4)));
+});
+
 test('memories: create with a tagged person, then cascade on person delete', async () => {
   // person to tag in the memory
   let res = await api('POST', '/api/people', { name: 'Bob' });
