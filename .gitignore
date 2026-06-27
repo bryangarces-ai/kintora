@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist-desktop/
+client/dist/
+**/dist/
+*.tsbuildinfo
+
+# ---- PERSONAL DATA — NEVER COMMIT ----
+# Real vault: SQLite db, uploads, and Obsidian export
+server/data/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Python tooling
+tools/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Logs / env / OS cruft
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Editor/local
+.vscode/
+.idea/
+.angular/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

@@ -1,0 +1,78 @@
+<div class="flex min-h-screen bg-slate-50 text-slate-900">
+  <!-- Sidebar -->
+  <aside
+    class="fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0"
+    [class.translate-x-0]="mobileNavOpen()"
+    [class.-translate-x-full]="!mobileNavOpen()"
+  >
+    <div class="flex h-full flex-col">
+      <div class="flex items-center gap-3 px-6 py-6">
+        <img src="favicon.ico" alt="Kintora" class="h-9 w-9 rounded-lg" />
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Kintora</h1>
+          <p class="text-xs text-slate-500">Your people &amp; moments</p>
+        </div>
+      </div>
+
+      <nav class="flex-1 space-y-1 px-3">
+        @for (item of nav; track item.path) {
+          <a
+            [routerLink]="item.path"
+            [routerLinkActiveOptions]="{ exact: item.exact }"
+            routerLinkActive="bg-indigo-50 text-indigo-700 font-semibold"
+            (click)="mobileNavOpen.set(false)"
+            class="flex items-center gap-3 rounded-xl px-4 py-3 text-base text-slate-700 transition hover:bg-slate-100"
+          >
+            <span class="text-xl">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+
+      <div class="px-6 py-4 text-xs text-slate-400">
+        A private place to remember.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Backdrop for mobile nav -->
+  @if (mobileNavOpen()) {
+    <div
+      class="fixed inset-0 z-20 bg-black/30 lg:hidden"
+      (click)="mobileNavOpen.set(false)"
+    ></div>
+  }
+
+  <!-- Main column -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header
+      class="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6"
+    >
+      <button
+        type="button"
+        class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        (click)="mobileNavOpen.set(!mobileNavOpen())"
+        aria-label="Toggle navigation"
+      >
+        ☰
+      </button>
+
+      <form class="relative flex-1 max-w-xl" (ngSubmit)="submitSearch()">
+        <input
+          type="search"
+          [(ngModel)]="query"
+          name="search"
+          placeholder="Search people, memories, info…"
+          class="w-full rounded-full border border-slate-300 bg-slate-50 py-2.5 pl-11 pr-4 text-base outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+        />
+        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          🔍
+        </span>
+      </form>
+    </header>
+
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <router-outlet />
+    </main>
+  </div>
+</div>
