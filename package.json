@@ -1,0 +1,58 @@
+{
+  "name": "memory-vault-desktop",
+  "version": "1.0.0",
+  "description": "Personal Memory Vault — local, offline desktop app",
+  "author": "Bryan",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "electron-builder install-app-deps",
+    "build:client": "npm --prefix client run build",
+    "electron:dev": "electron .",
+    "electron:build": "npm run build:client && electron-builder"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.bryan.kintora",
+    "productName": "Kintora",
+    "icon": "electron/icon.ico",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "electron/**/*",
+      "server/src/**/*",
+      "client/dist/client/browser/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "Kintora-portable.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "Kintora-Setup.exe"
+    }
+  }
+}

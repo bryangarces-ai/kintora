@@ -1,0 +1,16 @@
+{
+  "name": "memory-vault-server",
+  "version": "1.0.0",
+  "description": "Local, offline backend for the Personal Memory Vault",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "multer": "^2.2.0"
+  }
+}
