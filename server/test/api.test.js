@@ -10,6 +10,8 @@ const path = require('node:path');
 // real data. db.js resolves MEMORY_VAULT_DATA_DIR at load time.
 const TMP_VAULT = fs.mkdtempSync(path.join(os.tmpdir(), 'kintora-test-'));
 process.env.MEMORY_VAULT_DATA_DIR = TMP_VAULT;
+// The DB is encrypted; tests open it with a fixed throwaway key.
+process.env.KINTORA_VAULT_KEY = 'a'.repeat(64);
 delete process.env.CLIENT_DIST; // keep the SPA/static-serving block disabled
 
 const { app } = require('../src/index');
@@ -110,6 +112,26 @@ test('facts: create, validate, and delete', async () => {
   // deleting again is a 404
   res = await api('DELETE', `/api/facts/${id}`);
   assert.equal(res.status, 404);
+});
+
+test('vault DB is encrypted on disk (no plaintext leaks)', async () => {
+  const canary = 'CANARY-PLAINTEXT-9f8e7d6c';
+  const res = await api('POST', '/api/facts', { label: 'canary', value: canary });
+  assert.equal(res.status, 201);
+
+  // Flush the WAL into the main DB file, then inspect the raw bytes on disk.
+  const { db } = require('../src/db');
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  const dbBytes = fs.readFileSync(path.join(TMP_VAULT, 'memory-vault.db'));
+
+  // The canary value must not appear in cleartext anywhere in the file.
+  assert.ok(
+    !dbBytes.includes(Buffer.from(canary)),
+    'plaintext canary leaked into the DB file'
+  );
+  // A plaintext SQLite DB begins with the 16-byte magic "SQLite format 3" + NUL.
+  // An encrypted database must not start with that header.
+  assert.notEqual(dbBytes.subarray(0, 16).toString('binary'), 'SQLite format 3\x00');
 });
 
 test('memories: create with a tagged person, then cascade on person delete', async () => {
